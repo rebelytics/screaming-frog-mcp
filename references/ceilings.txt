@@ -1,0 +1,9 @@
+# Line ceilings for the reference files, read by task-observer's scripts/validate-skill-bundle.py.
+# One line per file: <file.md> <ceiling> [<short reason for the last raise>]
+# Over its ceiling, a file with more than 8 load triggers is split by episode;
+# one with 8 or fewer is trimmed, or its ceiling raised with a reason.
+# A ceiling more than 3 lines above its file's count is lowered to the count.
+# The core's ceiling is core_max_lines in SKILL.md; its raises are recorded here as comments.
+gotchas.md 453
+tool-surface.md 195
+workflows.md 642 the list crawl that stores rendered HTML so page text lands on disk
