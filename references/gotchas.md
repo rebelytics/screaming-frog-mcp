@@ -281,9 +281,9 @@ Reporting an unpopulated filter as a clean zero is the worst outcome available
 here, because it reads as a verified all-clear rather than as missing data.
 
 **The `Rel` column in inlink/outlink exports is empty for arbitrary link
-relations — including `rel="alternate"`.** On one multi-domain crawl, `Rel`
-was `null` on all 43,210 link rows, including ~28,000 country-switcher
-anchors verifiably carrying `rel="alternate"` in the page source. The
+relations — including `rel="alternate"`.** On a multi-domain crawl, `Rel`
+comes back `null` on every link row, country-switcher anchors included,
+though they verifiably carry `rel="alternate"` in the page source. The
 column appears to be populated only for the link relations the crawler
 treats as directives (nofollow and similar), not for arbitrary `rel`
 values — so a filter on it to select switcher or alternate links returns
@@ -373,12 +373,12 @@ contains and cannot confirm whether a URL is blocked. Blocking is a
 robots.txt evaluation, and this server already answers it via
 `Matched Robots.txt Line`.
 
-**The base directory is not visible to your own shell.** The server reads and
-writes one fixed root on the user's machine. Files must move through
-`sf_write_text_file` / `sf_read_text_file` / `sf_run_node_js_script`. You
-cannot hand a locally-generated script to the server by path, and you cannot
-open its exports directly — write the script through the server and have it
-print what you need.
+**Where your shell cannot see the base directory, files move only through
+the server.** It reads and writes one fixed root on the SEO Spider's machine.
+From an agent on another machine, use `sf_write_text_file` /
+`sf_read_text_file` / `sf_run_node_js_script`: you cannot hand it a local
+script by path or open its exports directly. On the same machine your shell
+reads the root directly, but a script that prints only what you need is cheaper.
 
 The confinement applies to the *file tools*, not to code the server
 executes: a script run with `sf_run_node_js_script` can write outside the

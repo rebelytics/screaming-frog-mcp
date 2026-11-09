@@ -84,11 +84,11 @@ With no `config_path` it runs under the instance's current configuration,
 and whether that configuration limits the URL count is not visible from the
 receipt or from `sf_crawl_progress` — so on a large site the crawl is
 bounded only by a deliberate `sf_pause_crawl`, and a pause that is merely
-intended is not a bound. Observed on a ~1M-URL domain: the intent was to
-pause at a fixed count for comparability with earlier desktop crawls; the
-crawl was next looked at with twice that count fetched and over a million
-URLs queued, because throughput more than doubled between the first
-reading and the next (roughly 400 URLs/min early on, roughly 1,000/min
+intended is not a bound. The failure shape: a crawl meant to pause at a
+fixed count for comparability with earlier crawls is next looked at with a
+multiple of that count fetched and a far larger queue, because throughput
+rose steeply between the first reading and the next (on a large site,
+roughly 400 URLs/min early on, roughly 1,000/min
 later).
 
 Three rules follow. **Key the bound on the crawl's own counter, not on the
@@ -174,9 +174,9 @@ confirm a blocking claim: look for `Status: Blocked by robots.txt` and
 
 ## Files and execution on the user's machine
 
-These operate on a **fixed base directory on the user's machine**, which your
-own shell cannot read. This is the only bridge between the crawl data and any
-processing you want to do. The confinement is a property of the file tools,
+These operate on a **fixed base directory on the user's machine**. Where your
+shell cannot read it (an agent on another machine), they are the only bridge
+between the crawl data and processing. The confinement is a property of the file tools,
 not of executed code: a script run with `sf_run_node_js_script` can write
 outside the base directory (see `gotchas.md`).
 

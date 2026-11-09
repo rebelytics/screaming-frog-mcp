@@ -1,6 +1,6 @@
 ---
 name: screaming-frog-mcp
-version: 1.0.0
+version: 1.0.1
 core_max_lines: 497
 description: "Companion skill for the official Screaming Frog SEO Spider MCP server, which drives a desktop SEO Spider instance via sf_* tools (sf_list_crawls, sf_load_crawl, sf_export_seo_element_urls, sf_url_info, sf_run_node_js_script). Load whenever the user works with Screaming Frog through an MCP: analysing a saved crawl, exporting an SEO element or report, pulling inlinks or outlinks, checking indexability, robots.txt blocking, canonicals, directives or response codes, or attributing crawl findings to the templates that emit them. Also load on mentions of blocked-by-robots reports, noindex inlinks, or any sf_ tool name — even when the MCP isn't named but crawl data is clearly needed. Read this BEFORE the first sf_ call: the default way of pulling data from this server will silently flood the context window, and a paused or partially-complete crawl needs handling rather than rejecting."
 license: CC-BY-4.0
@@ -30,13 +30,13 @@ Three consequences shape everything else:
 
 1. **It holds one crawl at a time.** Every query runs against whatever crawl
    is currently loaded. Nothing is scoped per-call.
-2. **It runs on the user's machine, not yours.** Its file tools read and
-   write a fixed base directory on that machine, which your own shell cannot
-   see. Files move between the two worlds only through the MCP's own file
-   tools — with one useful exception: a script run via
-   `sf_run_node_js_script` can write outside the base directory, which is
-   the cheapest way to hand bulk output to a shared location. See
-   `references/tool-surface.md`.
+2. **It runs on the SEO Spider's machine, which may not be yours.** Its
+   file tools read and write a fixed base directory there. Where your agent
+   runs on another machine (a cloud session), that directory is reachable
+   only through the MCP's file tools; on the same machine your shell can
+   read it directly, though the file-tool loop is still cheaper on context.
+   A script run via `sf_run_node_js_script` can write outside the base
+   directory: the cheapest bulk handoff. See `references/tool-surface.md`.
 3. **It answers with whole reports.** A single export can be hundreds of
    thousands of rows. There is no aggregation, no `count`, no `GROUP BY`.
    You have to impose that yourself, and doing it wrong is what makes

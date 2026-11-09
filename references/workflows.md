@@ -183,8 +183,8 @@ Request `Matched Robots.txt Line` on a blocked-by-robots filter and group by
 it. The output is a table of which rule is costing what:
 
 ```
-   109 urls    89757 inlinks  Line:5 /*/search
-  2180 urls    45017 inlinks  Line:7 /*?*mediaId=
+   120 urls    90000 inlinks  Line:4 /*/results
+  2200 urls    45000 inlinks  Line:9 /*?*viewRef=
 ```
 
 Read that table for **rules catching more than they were written for**. A
@@ -261,10 +261,10 @@ content. Re-crawling is the last option, not the first.
 
 The same question — "what does this crawl hold that nobody asked it for?" —
 pays off on multi-domain estates. With hreflang set to crawl, a spider crawl
-of one domain fetches the alternates it declares on every other ccTLD, and
-they land under `External > HTML` **with status codes** (observed on one
-crawl of a ~100k-URL reference domain declaring a dozen sibling domains:
-several thousand fetched alternates per domain). That is a status-verified
+of one domain fetches the alternates it declares on every sibling domain,
+and they land under `External > HTML` **with status codes** — on a large
+site, thousands of fetched alternates per sibling domain from one crawl of
+a single reference domain. That is a status-verified
 cross-domain existence map — which alternates resolve, which 404, which
 redirect — from a single crawl, not merely the annotation list the
 `Hreflang` element reports. Check `External > HTML` before starting a crawl
@@ -274,8 +274,8 @@ per domain.
 
 "Give me the current status of these 1,700 URLs" has no native expression on
 this server — `sf_crawl` is spider-only (see `gotchas.md`). Fetching them
-from the session's own sandbox is usually worse: cloud egress collects 429s
-and WAF challenges within a few hundred requests. Both routes that work
+from a remote agent's sandbox is usually worse: a remote agent's egress
+collects 429s and WAF challenges within a few hundred requests. Both routes that work
 treat `sf_run_node_js_script` as what it is — **a general execution surface
 on the user's machine**, whose ordinary network identity is not what the
 edge is filtering — and detach the work so it outlives the tool call. Route
@@ -353,7 +353,7 @@ Five properties decide whether the result means what it seems to:
   deletion in the Crawls dialog, and tell the user which run is which.
 - **It is not the detached HTTPS sweep.** Route B below fetches with a
   plain Node client, which an edge that challenges non-browser clients
-  blocks exactly as it blocks the sandbox; the CLI with a rendering
+  blocks exactly as it blocks a remote sandbox; the CLI with a rendering
   profile is the route past such a challenge.
 
 **The same route carries page text, not only status.** When a job needs
@@ -480,10 +480,10 @@ only from that class. On a catalogue with sale, new-in, bestseller or
 featured listings this is wrong in both directions: items that rotated
 *into* a listing since the crawl inflate the live count (false "only from
 this class"), items that rotated *out* deflate it (true positives hidden).
-Every flagged item in the observed case had four to seven genuine other
-sources; the live fetch had simply found them on more listing pages than
-the crawl had, because they were on sale when the fetch ran and not when
-the crawl ran a day earlier. Two further lessons:
+The failure shape: an item flagged as linked only from that class has
+genuine other sources, and the live fetch found it on more listing pages
+than the crawl did because it rotated into those listings between the
+crawl and the fetch. Two further lessons:
 
 - A one-sided sanity inequality (`live count > crawl total` is impossible)
   catches only the gross tail. Items inflated to *exactly* the total pass
@@ -508,11 +508,11 @@ current entry is an anchor — gives every page it renders a phantom source.
 The shift is uniform, so it never appears as an outlier; it moves the whole
 distribution by one, and a threshold near zero reads exactly inverted: the
 "exactly one non-X source, fragile but safe" bucket was, for most members,
-"zero plus self". In the observed case a finding of "no item depends on
-this page class" became, after subtracting self, an estimated several
-hundred items that did — a verification of a stratified sample of ten
-against actual sources found nine with no real non-class source. Any
-"inlinks from class X vs not-X" subtraction subtracts self first:
+"zero plus self". The failure shape: a finding that no item depends on a
+page class turns, once self is subtracted, into a non-zero count of items
+that do — verify the corrected count on a stratified sample checked
+against actual sources before reporting it. Any "inlinks from class X vs
+not-X" subtraction subtracts self first:
 
 ```
 sf_url_links(url: <item>, links_direction: "inlinks",
@@ -535,9 +535,9 @@ before it inverted the finding.
 ## Verifying a canonical deployment across a template
 
 The question "did the canonical change ship on every page of the template,
-and to the right host?" reduces to two exports and one aggregation. It was
-worked on a ~1M-URL domain after a cross-domain canonical deploy, with the
-crawl deliberately paused at a comparable count (see "Bounding an
+and to the right host?" reduces to two exports and one aggregation. On a
+large site, bound the crawl deliberately at a count comparable with the
+pre-deploy crawl, so before and after compare (see "Bounding an
 MCP-started crawl" in `tool-surface.md`).
 
 ```
@@ -608,18 +608,18 @@ JSON, so the recipe is a byte scan rather than a parse:
   `latin1` decode of the buffer and a regex.
 - The GSC block also carries the country filter
   (`Iso31661Alpha3CountryCode`), the device filter and the results type,
-  as readable strings; the GA4 block carries a max-results value (100,000
-  on the observed crawl), which is the cap below.
+  as readable strings; the GA4 block carries the max-results value, the
+  row cap that truncates a wider pull (below).
 
 **After any API re-pull over a wider window, run the per-URL superset
 check before using the data.** A 12-month pull must contain every URL that
 had traffic in the 30-day pull — the wider window is a superset by
-definition. On the observed crawl GSC obeyed this and GA4 did not: the
-count of URLs with sessions *fell* after the wider pull, and roughly a
-fifth of the URLs with 30-day sessions came back null for 12 months,
-concentrated in one path prefix and at every traffic level, including
-pages with hundreds of recent sessions. Headline totals rose by a
-plausible multiple and would have hidden it entirely. The test is: export
+definition. The failure shape: one source obeys this and the other does
+not — the count of URLs with sessions *falls* after the wider pull, and a
+share of the URLs with recent sessions comes back null for the wider
+window, concentrated in one path prefix and at every traffic level,
+including well-trafficked pages, while headline totals rise by a
+plausible multiple and hide it entirely. The test is: export
 `Address` plus the API fields before and after, join on `Address`, and
 list URLs > 0 in the narrow pull that are null or 0 in the wide one. A
 non-empty list means the wide pull is truncated (the GA4 max-results cap
