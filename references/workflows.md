@@ -2,7 +2,7 @@
 
 Reference file for the `screaming-frog-mcp` skill (CC BY 4.0 — Eoghan Henn and contributors). How to get answers out of a large crawl without drowning in rows.
 
-Load triggers: any multi-step analysis (the export→aggregate→summarise loop); an absence-based conclusion (queued URLs and the other subtraction traps); attributing links or blocked URLs to a template component or robots rule; re-checking a list of URLs or pulling their page text to disk, or confirming the newest band live; declaring a capability missing before checking the application's CLI; canonical verification or a stored crawl's API date range
+Load triggers: any multi-step analysis (the export→status→aggregate→summarise loop); an absence-based conclusion (queued URLs and the other subtraction traps); attributing links or blocked URLs to a template component or robots rule; crawling or re-checking a list of URLs, pulling their page text to disk, or confirming the newest band live; declaring a capability missing before checking the application's CLI; canonical verification or a stored crawl's API date range
 
 ## Contents
 
@@ -14,6 +14,7 @@ Load triggers: any multi-step analysis (the export→aggregate→summarise loop)
 - Reproducing a pattern someone saw in the desktop UI
 - When an export is refused, ask what the crawl does hold
 - Re-checking a list of URLs
+  - The default — a list crawl in the MCP's own instance
   - Route A — a List-mode crawl through the SEO Spider's CLI
   - Route B — a detached status sweep
 - Absence and subtraction traps
@@ -25,16 +26,17 @@ Load triggers: any multi-step analysis (the export→aggregate→summarise loop)
 
 ## The core loop
 
-Four steps. Deviating from them is what makes crawl analysis expensive.
+Five steps. Deviating from them is what makes crawl analysis expensive.
 
 **1. Prepare a working directory.** Writes don't create parents.
 
 ```
-sf_list_allowed_base_directory()        → the one writable root
+sf_allowed_base_directory()             → the one writable root
 sf_create_directory(path: "wk")
 ```
 
-**2. Export to a file, not to context.**
+**2. Export to a file.** The export is a background task; `file_path` is
+required.
 
 ```
 sf_export_seo_element_urls(
@@ -44,16 +46,27 @@ sf_export_seo_element_urls(
   file_path: "wk/blocked.ndjson")
 ```
 
-Returns a receipt, not the data:
+The call returns only `The task '…' has started and is currently running`.
+
+**3. Fetch the result with `sf_task_status`.** While the task runs it shows
+progress and every other tool is refused; once it reads `SUCCEEDED` the
+result is a receipt, not the data:
 
 ```json
 {"format":"NDJSON","path":"…/wk/blocked.ndjson","total_records":2409,"sample":"{…}"}
 ```
 
+Confirm the `path` is the file you asked for before reading the count — the
+status describes the last task that started, and a call that failed outright
+(an empty filter does) leaves the previous task's receipt showing. For
+reports and bulk exports the saved location is the `Export saved to …` line
+instead (`gotchas.md` has the shape per tool). One export in flight at a
+time; a task that outgrows its purpose is stopped with `sf_cancel_task`.
+
 Name only the `data_fields` you need. Omitting the parameter exports every
 field, which bloats the file and slows the aggregation for no benefit.
 
-**3. Write an aggregation script and run it.** The script must exist on disk
+**4. Write an aggregation script and run it.** The script must exist on disk
 before it can run, so write it first. Node built-ins are enough.
 
 ```js
@@ -74,14 +87,14 @@ for (const [k, v] of [...by].sort((a, b) => b[1].inlinks - a[1].inlinks))
 
 ```
 sf_write_text_file(path: "wk/agg.js", content: <the script>)
-sf_run_node_js_script(script_path: "wk/agg.js")
+sf_run_node_script(script_path: "wk/agg.js")
 ```
 
-**4. Read only the aggregate.** Stdout is the tool result, so have the script
+**5. Read only the aggregate.** Stdout is the tool result, so have the script
 print the finished table — not the rows behind it.
 
 Why this matters: a single blocked-links report was 134,894 rows. Read
-inline, that is an unusable amount of context. Through this loop the entire
+back row by row, that is an unusable amount of context. Through this loop the entire
 decomposition cost a few dozen lines of output.
 
 ---
@@ -89,7 +102,8 @@ decomposition cost a few dozen lines of output.
 ## Counting things
 
 There is no count tool, but `total_records` in the export receipt is one.
-Export to a file with a single `data_fields` entry and read the number. This
+Export to a file with a single `data_fields` entry, fetch the receipt with
+`sf_task_status` and read the number. This
 is the cheapest question you can ask the server.
 
 **Do not reach for `max_rows` to probe a count.** It caps `total_records` in
@@ -98,8 +112,9 @@ set — a number that reflects your parameter rather than the data, and looks
 exactly like a real answer. Run the export uncapped.
 
 **"Are there any at all?" is a two-step question.** A filter matching nothing
-raises `IllegalArgumentException: start_index is greater than the total number
-of URLs of 0`. The exception means *this filter holds no rows* — which is only
+fails the call with `No URLs match filter '…' …, so there is nothing to
+export` (an empty bulk export instead succeeds with `Report generated no
+data`). Either means *this selection holds no rows* — which is only
 the same as "none exist" if the crawl was configured to collect them. Confirm
 with `sf_generate_report(category: "Crawl Overview")`, which reports totals the
 filters don't store, and by checking that the parent population is non-empty.
@@ -108,15 +123,17 @@ answers and only one of them is an all-clear.
 
 **Parse the Crawl Overview report as one whole document.** It is not NDJSON —
 `sf_generate_report` writes a single pretty-printed JSON object regardless of
-the extension you asked for, so the per-line idiom from step 3 above throws a
+the extension you asked for, so the per-line idiom from step 4 above throws a
 SyntaxError on the first line. Use one `JSON.parse` of the whole file. Its
 `summary` block reconciles the category totals for you (internal
 non-indexable = blocked + noindex + redirect targets), which is often the
 entire cross-check in one read.
 
 The shape inside, so no throwaway script is spent rediscovering it (observed
-on one stored crawl, SF version unknown — two sessions burnt three scripts
-between them on it): the per-filter counts live at `seoElements.seoElementFilterCounts`,
+on one stored crawl under 24.x — two sessions burnt three scripts
+between them on it; on 25 the document's six top-level objects are
+`crawlMetadata`, `summary`, `seoElements`, `depthStats`, `topLinks` and
+`responseTimes`): the per-filter counts live at `seoElements.seoElementFilterCounts`,
 an array of `{seoElementName, filterCounts: [{filterName, urlCount,
 totalUrls, percentageOfTotal}]}`; the `summary` block's keys are named
 objects of the form `{description, urls, …}` rather than bare numbers, so
@@ -272,23 +289,59 @@ per domain.
 
 ## Re-checking a list of URLs
 
-"Give me the current status of these 1,700 URLs" has no native expression on
-this server — `sf_crawl` is spider-only (see `gotchas.md`). Fetching them
-from a remote agent's sandbox is usually worse: a remote agent's egress
-collects 429s and WAF challenges within a few hundred requests. Both routes that work
-treat `sf_run_node_js_script` as what it is — **a general execution surface
-on the user's machine**, whose ordinary network identity is not what the
-edge is filtering — and detach the work so it outlives the tool call. Route
-A runs a real List-mode crawl through the application's own CLI and is the
-default; route B is a lighter status-only sweep for sites that do not
-challenge non-browser clients.
+"Give me the current status of these 1,700 URLs" is a list crawl, and since
+25 the server runs one itself. Fetching the URLs from a remote agent's
+sandbox is usually worse: a remote agent's egress collects 429s and WAF
+challenges within a few hundred requests, where the user's machine has an
+ordinary network identity the edge is not filtering. Three routes, in
+order of preference: the list-crawl tools in the MCP's own instance; route
+A, the application's CLI spawned from `sf_run_node_script`, for a list
+crawl that must leave the instance's loaded crawl and configuration alone;
+and route B, a lighter status-only sweep for sites that do not challenge
+non-browser clients.
+
+### The default — a list crawl in the MCP's own instance
+
+```
+sf_crawl_progress()                      → note what is loaded; it will be replaced
+sf_clear_crawl()                         → only if a crawl is loaded and the mode must change
+sf_set_crawl_mode(mode: "LIST")          → reply lists the per-mode settings now in effect
+sf_get_config_spider(category: "crawlConfig")   → read before changing anything
+sf_set_config_spider(config: "{…}")      → rendering, Store HTML, extraction: only what the job needs
+sf_crawl_from_list(list_mode_file: "<absolute path>/wk/list.txt", crawl_name: "…")
+sf_crawl_progress()                      → poll until crawlRunning is false
+```
+
+- **The list:** inline in `list_mode_urls` (one URL per line) for a short
+  one; for a long one write the file with `sf_write_text_file`, or have a
+  script write it from an earlier export so no URL bytes cross the context,
+  and pass its **absolute** path — `list_mode_file` is not resolved against
+  the base directory (`sf_allowed_base_directory` gives the prefix).
+- **Configuration after the mode switch, not before:** eight settings are
+  kept per mode and swap on the switch (`tool-surface.md`, "Crawl mode and
+  list crawls"). In LIST mode the observed defaults limit crawl depth to
+  the listed URLs.
+- **The crawl replaces the loaded crawl and is stored.** Name it so the
+  user can find it, and list it in the session-end handover.
+- **It uses the instance's network identity and configuration**, so a site
+  that challenges non-browser clients needs `crawlerMode: "RENDER"` set
+  first. Rendering is slow: about seven seconds per URL at default speed on
+  one site.
+- **Page text:** switch `storeOriginalHtml` / `storeRenderedHtml` on before
+  the crawl, then `sf_bulk_export_page_content` with `MARKDOWN` or
+  `VISIBLE_TEXT` writes one row per page to disk. Its status receipt
+  carries a whole page as the sample.
+- **Restore the configuration afterwards** and read it back.
 
 ### Route A — a List-mode crawl through the SEO Spider's CLI
+
+Everything in this route was observed on 24.x and has not been re-run on
+25. Use it when the list crawl must run as a separate process.
 
 The desktop application ships a command-line launcher (on macOS,
 `/Applications/Screaming Frog SEO Spider.app/Contents/MacOS/ScreamingFrogSEOSpiderLauncher`;
 the vendor's CLI documentation names the Windows and Linux equivalents).
-Spawned detached from a launcher script run by `sf_run_node_js_script`, it
+Spawned detached from a launcher script run by `sf_run_node_script`, it
 runs a genuine List-mode crawl:
 
 ```
@@ -404,7 +457,8 @@ sf_export_seo_element_urls(
   data_fields: ["Address"], file_path: "wk/urls.ndjson")
 ```
 
-No URL bytes pass through context — only the receipt's `total_records`.
+No URL bytes pass through context — only the receipt's `total_records`,
+read from `sf_task_status`.
 
 **2. Write a launcher that spawns a detached worker.** The launcher starts
 the worker with `spawn(..., { detached: true, stdio: ['ignore', logFd,
@@ -417,7 +471,7 @@ file after each batch.
 ```
 sf_write_text_file(path: "wk/sweep.js", content: <worker>)
 sf_write_text_file(path: "wk/launch.js", content: <launcher>)
-sf_run_node_js_script(script_path: "wk/launch.js")   → returns in ~1s
+sf_run_node_script(script_path: "wk/launch.js")   → returns in ~1s
 ```
 
 The tool call's time budget bounds the *launcher*, not the sweep, so a run
@@ -465,9 +519,10 @@ sf_generate_bulk_export(category: "Queued URLs", output_path: "wk/queued.ndjson"
 
 If `waiting` is non-zero, export the queue and remove its rows from the
 absent set before reporting anything. A queue of hundreds of rows exports
-in seconds even on a crawl where heavier exports time out; a queue of
-hundreds of thousands times out and drops the crawl (see `gotchas.md`) —
-`waiting` tells you which you have. State in the deliverable whether the
+in seconds; on 24.x a queue of hundreds of thousands timed out and dropped
+the crawl, and nothing that size has been tried on 25 (see `gotchas.md`) —
+`waiting` tells you which you have, and `sf_cancel_task` stops an export
+that runs too long. State in the deliverable whether the
 crawl finished with an empty queue or the queue was subtracted.
 
 **2. A live re-fetch joined against a crawl snapshot manufactures findings
@@ -550,7 +605,7 @@ sf_export_seo_element_urls(seo_element_name: "Canonicals",
 ```
 
 (Resolve the exact field name with
-`sf_list_available_data_fields_for_seo_element_and_filter` — it is
+`sf_list_fields_for_seo_element_filter` — it is
 filter-specific.) Then aggregate in Node in two passes:
 
 1. **By `(canonical host, same-path?)`** — does the canonical point at the
@@ -569,7 +624,7 @@ Then find the pages **outside** the template. Read
 that canonicalises everything to another host it should be near zero, and
 each remaining indexable page is either a self-referencing exception or a
 page with no canonical at all. `Canonicals: Missing` is usually tiny and safe
-to read inline, and it names the second kind. Reconcile: canonicalised +
+to read back whole, and it names the second kind. Reconcile: canonicalised +
 self-referencing + missing should account for every internal HTML URL, and
 the residual is the group you have not characterised (see "Reconciling to a
 total" above).
@@ -584,15 +639,20 @@ window*, and a zero-traffic reading without the window is not a finding.
 Ask the user first; when nobody remembers, the crawl's own saved
 configuration is the first-party source, and it is readable.
 
-Provenance for everything below: observed on one stored crawl, SF version
-unknown; the byte layout is Java serialisation and may shift between
-versions, so verify the pattern against a known date before trusting a
-scan.
+Provenance for everything below: observed on one stored crawl under 24.x
+and not re-run on 25; the byte layout is Java serialisation and may shift
+between versions, so verify the pattern against a known date before
+trusting a scan. On 25, try `sf_get_config_spider(category: "ga4Config")`
+and `"gscConfig"` first: loading a crawl loads the configuration it ran
+with (the vendor says so for segments), which may make the byte scan
+unnecessary — unexercised.
 
 The saved config lives outside the MCP's base directory, at
 `~/.ScreamingFrogSEOSpider/ProjectInstanceData/<crawl id>/serialised_data/spiderconfig`
-(`<crawl id>` is the `instanceDirName`), and a script run with
-`sf_run_node_js_script` can read it — the runner's filesystem reach is not
+(`<crawl id>` is the listing's `crawlId`; on two crawls run by 25.1 the
+`serialised_data` folder held no file named `spiderconfig`, so list that
+folder first and expect the file name to differ), and a script run with
+`sf_run_node_script` can read it — the runner's filesystem reach is not
 confined (see `tool-surface.md`). It is a Java-serialised object graph, not
 JSON, so the recipe is a byte scan rather than a parse:
 
