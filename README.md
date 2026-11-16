@@ -2,6 +2,8 @@
 
 Open-source companion skill for the **official Screaming Frog SEO Spider MCP server** (SEO Spider 25), which drives a desktop SEO Spider instance via `sf_*` tools. A field guide to how the server actually behaves: the parameter rules, response shapes, cost traps and boundaries that the tool descriptions leave out, so a session using it is structured and avoids the mistakes that are expensive to discover in flight. Load it into any MCP-capable AI agent (Claude, Cursor, Codex, n8n, etc.).
 
+Part of the [Open Skill Library](https://github.com/rebelytics/one-skill-to-rule-them-all/blob/main/OPEN-SKILL-LIBRARY.md), the open-source agent skills maintained with Task Observer.
+
 ## When it triggers
 
 Whenever the user works with Screaming Frog through an MCP: analysing a saved crawl, exporting an SEO element or report, starting or configuring a spider or list crawl, pulling inlinks or outlinks, checking indexability, robots.txt blocking, canonicals, directives or response codes, or attributing crawl findings to the templates that emit them. Also on any `sf_` tool name — even when the MCP isn't named but crawl data is clearly needed. Read it before the first `sf_` call: a client still holding the previous release's tool list loses the loaded crawl on its first call, exports run as background tasks whose result is fetched separately, and a paused or partial crawl needs handling rather than rejecting.
