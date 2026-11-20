@@ -3,7 +3,7 @@
 # Over its ceiling, a file with more than 8 load triggers is split by episode;
 # one with 8 or fewer is trimmed, or its ceiling raised with a reason.
 # A ceiling more than 3 lines above its file's count is lowered to the count.
-# The core's ceiling is core_max_lines in SKILL.md; its raises are recorded here as comments.
+# The core's ceiling is metadata.core_max_lines in SKILL.md; its raises are recorded here as comments.
 gotchas.md 576 SEO Spider 25 errors, the task result table and the settings that persist in the instance
 tool-surface.md 327 SEO Spider 25 tools: rename table, background tasks, crawl mode, configuration, help and APIs
 workflows.md 702 the task-status step in the core loop and the list crawl in the MCP's own instance

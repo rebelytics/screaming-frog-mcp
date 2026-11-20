@@ -1,12 +1,12 @@
 ---
 name: screaming-frog-mcp
-version: 1.1.0
-core_max_lines: 598
 description: "Companion skill for the official Screaming Frog SEO Spider MCP server (SEO Spider 25), which drives a desktop SEO Spider instance via sf_* tools (sf_list_crawls, sf_load_crawl, sf_task_status, sf_export_seo_element_urls, sf_set_config_spider, sf_crawl_from_list). Load whenever the user works with Screaming Frog through an MCP: analysing a saved crawl, exporting an SEO element or report, starting or configuring a spider or list crawl, pulling inlinks or outlinks, checking indexability, robots.txt blocking, canonicals, directives or response codes, or attributing crawl findings to the templates that emit them. Also load on any sf_ tool name — even when the MCP isn't named but crawl data is clearly needed. Read this BEFORE the first sf_ call: a client still holding the previous release's tool list loses the loaded crawl on its first call, exports run as background tasks whose result is fetched separately, and a paused or partial crawl needs handling rather than rejecting."
 license: CC-BY-4.0
 metadata:
   author: Eoghan Henn and contributors
   source: https://github.com/rebelytics/screaming-frog-mcp
+  version: "1.1.1"
+  core_max_lines: "598"
 ---
 
 # Screaming Frog SEO Spider MCP — Companion
