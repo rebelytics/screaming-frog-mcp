@@ -6,5 +6,5 @@
 # The core's ceiling is metadata.core_max_lines in SKILL.md; its raises are recorded here as comments.
 gotchas.md 576 SEO Spider 25 errors, the task result table and the settings that persist in the instance
 tool-surface.md 327 SEO Spider 25 tools: rename table, background tasks, crawl mode, configuration, help and APIs
-workflows.md 702 the task-status step in the core loop and the list crawl in the MCP's own instance
+workflows.md 727 the task-status step in the core loop, the list crawl in the MCP's own instance, and which robots.txt group the SEO Spider matches
 # core 598: SEO Spider 25 surface check at session start, background-task results, retired 24.x claims

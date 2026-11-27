@@ -5,7 +5,7 @@ license: CC-BY-4.0
 metadata:
   author: Eoghan Henn and contributors
   source: https://github.com/rebelytics/screaming-frog-mcp
-  version: "1.1.1"
+  version: "1.2.0"
   core_max_lines: "598"
 ---
 

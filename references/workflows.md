@@ -10,6 +10,7 @@ Load triggers: any multi-step analysis (the export→status→aggregate→summar
 - Counting things
 - Attributing findings to the template that causes them
 - Attributing blocked URLs to the robots.txt rule
+  - Which robots.txt group the SEO Spider matches
 - Reconciling to a total
 - Reproducing a pattern someone saw in the desktop UI
 - When an export is refused, ask what the crawl does hold
@@ -217,6 +218,30 @@ URL set before recommending it. A small matcher implementing `*` and `$`
 semantics, run over the exported addresses, gives you the confusion matrix:
 still-blocked, newly-released, newly-caught. That converts a recommendation
 into a measurement.
+
+### Which robots.txt group the SEO Spider matches
+
+Per SF's own documentation
+([user-guide/general/#robots-txt](https://www.screamingfrog.co.uk/seo-spider/user-guide/general/#robots-txt)),
+SF follows a robots-matching fallback chain of
+**"Screaming Frog SEO Spider" → "Googlebot" → "*"**. When a robots.txt
+contains no SF-specific group, SF adopts the **Googlebot group by
+default** — regardless of the HTTP user-agent configured for the crawl.
+Two practical consequences:
+
+- **An SF crawl is a Googlebot-eye view of robots.txt whenever a
+  Googlebot group exists**, even with the default SF user-agent string.
+  Checking the crawl's UA configuration won't explain the behaviour,
+  because the UA isn't what's being matched.
+- **Leaving the Robots User-Agent setting blank makes SF obey only
+  `*`** — the way to simulate a generic crawler's view of the file.
+
+**Worked example.** A robots.txt with a restrictive `*` group (several
+disallows) plus a `User-agent: Googlebot` group with an empty `Disallow:`:
+SF reports every URL as allowed. The tempting hypothesis — the crawl was
+configured with a Googlebot UA — is wrong. The mechanism is the fallback
+chain: with no SF group present, SF matches the Googlebot group, whose
+empty `Disallow:` means allow-all.
 
 ---
 
